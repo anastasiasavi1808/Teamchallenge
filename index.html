@@ -1,0 +1,2067 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Vistabeans Management Dashboard — Analisi profittabilità prodotti, geografia e raccomandazioni strategiche.">
+<title>Vistabeans — Interactive Dashboard</title>
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<!-- SheetJS for Excel import -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- html2canvas + jsPDF for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════════════════
+   DESIGN TOKENS — Coffee palette inspired by Vistabean
+   ═══════════════════════════════════════════════════════ */
+:root {
+  --bg: #f5f0e8;
+  --bg-warm: #efe8dc;
+  --surface: #ffffff;
+  --surface2: #faf7f2;
+  --surface3: #f0ebe3;
+
+  --primary: #5a3e2b;
+  --primary-light: #7a5c44;
+  --primary-dark: #3d2a1b;
+
+  --accent: #2b5a3e;
+  --accent-light: #3a7a54;
+  --accent-bg: #e8f2ec;
+
+  --text: #2c1e12;
+  --text-secondary: #7a6b5d;
+  --text-muted: #a89888;
+
+  --border: #ddd4c8;
+  --border-light: #e8e0d4;
+
+  --green: #2b8a5e;
+  --green-bg: #e6f5ed;
+  --green-text: #1a5c3c;
+
+  --amber: #c07b1a;
+  --amber-bg: #fdf2dc;
+  --amber-text: #7a4e0f;
+
+  --red: #c94444;
+  --red-bg: #fce8e8;
+  --red-text: #8a2c2c;
+
+  --blue: #2a6cb6;
+  --blue-bg: #e4f0fc;
+  --blue-text: #1a4a7a;
+
+  --radius: 14px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --shadow: 0 1px 3px rgba(90,62,43,0.06), 0 4px 12px rgba(90,62,43,0.04);
+  --shadow-lg: 0 4px 16px rgba(90,62,43,0.08), 0 12px 40px rgba(90,62,43,0.06);
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --sidebar-w: 260px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════════════════ */
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--primary-dark);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+  transition: transform var(--transition);
+}
+
+.sidebar-header {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.sidebar-logo {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sidebar-logo .bean-icon {
+  width: 32px; height: 32px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+
+.sidebar-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  margin-top: 6px;
+  letter-spacing: 0.03em;
+}
+
+.sidebar-nav {
+  list-style: none;
+  padding: 16px 12px;
+  flex: 1;
+}
+
+.sidebar-nav li { margin-bottom: 4px; }
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  color: rgba(255,255,255,0.6);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--transition);
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.9);
+}
+
+.nav-link.active {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-weight: 600;
+}
+
+.nav-link .nav-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+}
+
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.upload-area {
+  background: rgba(255,255,255,0.06);
+  border: 1px dashed rgba(255,255,255,0.2);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.upload-area:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.35);
+}
+
+.upload-area label {
+  display: block;
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+}
+
+.upload-area label strong {
+  display: block;
+  font-size: 13px;
+  color: rgba(255,255,255,0.8);
+  margin-bottom: 4px;
+}
+
+.upload-area input { display: none; }
+
+.upload-status {
+  font-size: 10px;
+  color: var(--accent-light);
+  margin-top: 6px;
+  display: none;
+}
+
+.upload-status.show { display: block; }
+
+/* ─── MAIN CONTENT ─── */
+.content {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  padding: 28px 32px 60px;
+  min-height: 100vh;
+}
+
+/* ─── MOBILE BURGER ─── */
+.burger {
+  display: none;
+  position: fixed;
+  top: 14px; left: 14px;
+  z-index: 200;
+  width: 40px; height: 40px;
+  background: var(--primary-dark);
+  border: none;
+  border-radius: var(--radius-xs);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════════════════
+   PAGE HEADER
+   ═══════════════════════════════════════════════════════ */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -0.02em;
+}
+
+.page-header p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.btn:hover {
+  background: var(--surface2);
+  box-shadow: var(--shadow);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.btn-primary:hover {
+  background: var(--primary-light);
+}
+
+/* ═══════════════════════════════════════════════════════
+   SECTION LABEL
+   ═══════════════════════════════════════════════════════ */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 28px 0 14px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   KPI CARDS
+   ═══════════════════════════════════════════════════════ */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.kpi-val {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.kpi-sub {
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kpi-sub.up { color: var(--green-text); }
+.kpi-sub.down { color: var(--red-text); }
+.kpi-sub.warn { color: var(--amber-text); }
+
+.kpi-bar {
+  height: 4px;
+  border-radius: 2px;
+  margin-top: 12px;
+  background: var(--border-light);
+  overflow: hidden;
+}
+
+.kpi-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CARDS & GRID
+   ═══════════════════════════════════════════════════════ */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  box-shadow: var(--shadow);
+}
+
+.card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 16px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   TABLE
+   ═══════════════════════════════════════════════════════ */
+.tbl-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  font-size: 12px;
+  min-width: 1000px;
+}
+
+thead th {
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 11px 12px;
+  text-align: center;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+thead th:first-child { text-align: left; }
+
+thead th:hover { background: var(--primary-light); }
+
+thead th .sort-arrow {
+  font-size: 9px;
+  margin-left: 4px;
+  opacity: 0.5;
+}
+
+thead th.sorted .sort-arrow { opacity: 1; }
+
+tbody tr { transition: background var(--transition); }
+tbody tr:nth-child(odd) { background: var(--surface); }
+tbody tr:nth-child(even) { background: var(--surface2); }
+tbody tr:hover { background: var(--bg-warm) !important; }
+
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-light);
+  text-align: center;
+}
+
+td:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+tfoot td {
+  background: var(--surface3) !important;
+  font-weight: 700;
+  border-top: 2px solid var(--border);
+  color: var(--primary);
+}
+
+/* ─── PILLS ─── */
+.pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.pill-green { background: var(--green-bg); color: var(--green-text); }
+.pill-amber { background: var(--amber-bg); color: var(--amber-text); }
+.pill-red { background: var(--red-bg); color: var(--red-text); }
+
+/* ═══════════════════════════════════════════════════════
+   BAR ROWS (custom horizontal bars)
+   ═══════════════════════════════════════════════════════ */
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+  font-size: 12px;
+}
+
+.bar-label {
+  width: 110px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: right;
+  flex-shrink: 0;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bar-track {
+  flex: 1;
+  height: 12px;
+  background: var(--surface3);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+
+.bar-num {
+  width: 56px;
+  text-align: right;
+  font-weight: 600;
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   METRIC SELECTOR BUTTONS
+   ═══════════════════════════════════════════════════════ */
+.sel-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.sel-btn {
+  font-size: 11px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-weight: 500;
+  transition: all var(--transition);
+}
+
+.sel-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  font-weight: 700;
+}
+
+.sel-btn:hover:not(.active) {
+  background: var(--surface3);
+}
+
+/* ═══════════════════════════════════════════════════════
+   ACTION / RECOMMENDATION CARDS
+   ═══════════════════════════════════════════════════════ */
+.action-card {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  transition: transform var(--transition);
+}
+
+.action-card:hover {
+  transform: translateX(4px);
+}
+
+.action-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.action-body { flex: 1; }
+
+.action-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-bottom: 6px;
+}
+
+.action-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.action-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+
+.action-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CHART LEGEND
+   ═══════════════════════════════════════════════════════ */
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ld {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* ═══════════════════════════════════════════════════════
+   MAP STYLES
+   ═══════════════════════════════════════════════════════ */
+.map-container {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.map-svg-wrap {
+  width: 100%;
+  overflow: hidden;
+}
+
+.map-svg-wrap svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.map-svg-wrap path {
+  stroke: var(--surface);
+  stroke-width: 1;
+  transition: fill var(--transition), transform 0.2s ease;
+  cursor: pointer;
+}
+
+.map-svg-wrap path:hover {
+  filter: brightness(0.88);
+  stroke: var(--primary);
+  stroke-width: 1.5;
+}
+
+.map-popup {
+  position: absolute;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 18px 20px;
+  min-width: 280px;
+  max-width: 360px;
+  z-index: 50;
+  display: none;
+  animation: popIn 0.25s ease;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.95) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.map-popup.show { display: block; }
+
+.map-popup-close {
+  position: absolute;
+  top: 8px; right: 10px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.map-popup h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 10px;
+}
+
+.map-mini-kpi {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.map-mini-kpi .mk {
+  background: var(--surface2);
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+}
+
+.map-mini-kpi .mk-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.map-mini-kpi .mk-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.map-alerts .alert-item {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.sparkline-wrap {
+  height: 40px;
+  margin: 8px 0;
+}
+
+.sparkline-wrap canvas {
+  width: 100% !important;
+  height: 40px !important;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FILTER BAR
+   ═══════════════════════════════════════════════════════ */
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.filter-bar select, .filter-bar input {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color var(--transition);
+}
+
+.filter-bar select:focus, .filter-bar input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ═══════════════════════════════════════════════════════
+   SIMULATION CONTROLS (Page 3)
+   ═══════════════════════════════════════════════════════ */
+.sim-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  box-shadow: var(--shadow);
+  margin-bottom: 14px;
+}
+
+.sim-card h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 12px;
+}
+
+.sim-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.sim-row label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 160px;
+}
+
+.sim-row input[type="range"] {
+  flex: 1;
+  min-width: 150px;
+  accent-color: var(--primary);
+  height: 6px;
+}
+
+.sim-row .sim-val {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  min-width: 60px;
+  text-align: right;
+}
+
+.sim-result {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+}
+
+.sim-result .sr {
+  text-align: center;
+  padding: 10px;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+}
+
+.sim-result .sr-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.sim-result .sr-val {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.sim-result .sr-delta {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════════════ */
+.footer {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ═══════════════════════════════════════════════════════
+   TOAST / NOTIFICATION
+   ═══════════════════════════════════════════════════════ */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--primary);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  z-index: 500;
+  animation: slideUp 0.3s ease;
+  display: none;
+}
+
+.toast.show { display: block; }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   TABLE SEARCH / FILTER
+   ═══════════════════════════════════════════════════════ */
+.table-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-input {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  width: 240px;
+  transition: border-color var(--transition);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .burger { display: flex; }
+  .content {
+    margin-left: 0;
+    padding: 60px 16px 40px;
+  }
+  .kpi-grid { grid-template-columns: 1fr; }
+  .page-header h1 { font-size: 20px; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.page-section {
+  animation: fadeIn 0.35s ease;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- BURGER (mobile) -->
+  <button class="burger" id="burger" onclick="toggleSidebar()">☰</button>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <span class="bean-icon">☕</span>
+        Vistabeans
+      </div>
+      <div class="sidebar-sub">Management Dashboard · CFO Office</div>
+    </div>
+
+    <ul class="sidebar-nav">
+      <li>
+        <a class="nav-link active" onclick="navigateTo('prodotti')" data-page="prodotti">
+          <span class="nav-icon">📊</span> Analisi Prodotti
+        </a>
+      </li>
+      <li>
+        <a class="nav-link" onclick="navigateTo('geografia')" data-page="geografia">
+          <span class="nav-icon">🗺️</span> Analisi Geografica
+        </a>
+      </li>
+      <li>
+        <a class="nav-link" onclick="navigateTo('soluzioni')" data-page="soluzioni">
+          <span class="nav-icon">💡</span> Soluzioni & Raccomandazioni
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div class="upload-area">
+        <label for="excel-input">
+          <strong>📁 Carica Excel</strong>
+          Trascina o clicca per importare
+        </label>
+        <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" onchange="handleFileUpload(event)">
+      </div>
+      <div class="upload-status" id="upload-status">✓ File caricato con successo</div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="content" id="router-view">
+    <!-- Pages are injected here by JS -->
+  </main>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   DATA — Product definitions with real names
+   ═══════════════════════════════════════════════════════ */
+const PRODUCT_NAMES = {
+  1: 'Colombian Dark Roast',
+  2: 'Ethiopian Yirgacheffe',
+  3: 'Sumatra Mandheling',
+  4: 'Guatemala Antigua',
+  5: 'Kenya AA Supreme',
+  6: 'Costa Rica Tarrazú',
+  7: 'Jamaica Blue Mountain',
+  8: 'Brazil Santos',
+  9: 'Espresso Classico',
+  10: 'Decaf Blend',
+  11: 'House Blend Premium',
+  12: 'French Roast Organic',
+  13: 'Instant Economy'
+};
+
+const products = [
+  {id:2,  sales:128.3,cogs_p:37.7,gm:62.3,exp_p:24.5,mkt_p:13.5,profit:48.5,nm:37.8,roi:2.80,bvar:-20.0,inv:837},
+  {id:9,  sales:95.9, cogs_p:43.3,gm:56.7,exp_p:28.9,mkt_p:16.6,profit:26.7,nm:27.8,roi:1.68,bvar:-5.9, inv:754},
+  {id:6,  sales:78.2, cogs_p:42.6,gm:57.4,exp_p:24.2,mkt_p:12.9,profit:25.9,nm:33.2,roi:2.56,bvar:-16.2,inv:793},
+  {id:11, sales:73.2, cogs_p:41.7,gm:58.3,exp_p:23.5,mkt_p:13.4,profit:25.4,nm:34.8,roi:2.60,bvar:+5.9, inv:775},
+  {id:8,  sales:75.6, cogs_p:41.5,gm:58.5,exp_p:26.7,mkt_p:16.1,profit:24.0,nm:31.8,roi:1.98,bvar:-8.2, inv:748},
+  {id:12, sales:66.8, cogs_p:42.8,gm:57.2,exp_p:25.3,mkt_p:14.7,profit:21.3,nm:31.9,roi:2.16,bvar:+15.3,inv:795},
+  {id:5,  sales:84.9, cogs_p:44.7,gm:55.3,exp_p:35.8,mkt_p:23.2,profit:16.5,nm:19.5,roi:0.84,bvar:-32.3,inv:794},
+  {id:3,  sales:62.2, cogs_p:47.5,gm:52.5,exp_p:31.7,mkt_p:18.3,profit:12.9,nm:20.8,roi:1.14,bvar:-35.4,inv:881},
+  {id:4,  sales:35.9, cogs_p:42.6,gm:57.4,exp_p:29.1,mkt_p:15.2,profit:10.2,nm:28.3,roi:1.86,bvar:-4.2, inv:662},
+  {id:7,  sales:24.0, cogs_p:43.3,gm:56.7,exp_p:20.3,mkt_p:12.3,profit:8.8, nm:36.5,roi:2.97,bvar:-7.9, inv:924},
+  {id:10, sales:35.7, cogs_p:55.8,gm:44.2,exp_p:27.7,mkt_p:17.1,profit:5.9, nm:16.5,roi:0.96,bvar:-17.5,inv:1151},
+  {id:1,  sales:26.3, cogs_p:48.5,gm:51.5,exp_p:33.9,mkt_p:17.7,profit:4.6, nm:17.7,roi:1.00,bvar:-37.1,inv:778},
+  {id:13, sales:32.9, cogs_p:58.1,gm:41.9,exp_p:39.9,mkt_p:21.7,profit:0.7, nm:2.0, roi:0.09,bvar:-83.3,inv:945},
+];
+
+/* Geographic data — US states with product distribution */
+const geoData = [
+  {region:'California',   code:'CA', sales:142, profit:44.2, nm:31.1, cogs:41.2, bvar:-8.5,  products:[2,9,6,11,8]},
+  {region:'New York',     code:'NY', sales:118, profit:35.8, nm:30.3, cogs:42.5, bvar:-12.3, products:[2,9,5,12,3]},
+  {region:'Texas',        code:'TX', sales:96,  profit:27.5, nm:28.6, cogs:43.8, bvar:-15.1, products:[9,8,11,4,1]},
+  {region:'Florida',      code:'FL', sales:85,  profit:22.4, nm:26.4, cogs:44.1, bvar:-18.7, products:[6,12,5,10,13]},
+  {region:'Illinois',     code:'IL', sales:72,  profit:21.6, nm:30.0, cogs:42.0, bvar:-6.2,  products:[2,11,8,7]},
+  {region:'Pennsylvania', code:'PA', sales:55,  profit:14.3, nm:26.0, cogs:45.2, bvar:-22.1, products:[3,5,10,1]},
+  {region:'Ohio',         code:'OH', sales:48,  profit:12.8, nm:26.7, cogs:44.8, bvar:-14.5, products:[9,4,12]},
+  {region:'Georgia',      code:'GA', sales:42,  profit:11.3, nm:26.9, cogs:43.5, bvar:-10.8, products:[6,8,13]},
+  {region:'Washington',   code:'WA', sales:68,  profit:23.8, nm:35.0, cogs:39.5, bvar:+4.2,  products:[2,7,11,6]},
+  {region:'Colorado',     code:'CO', sales:38,  profit:12.5, nm:32.9, cogs:40.8, bvar:+1.5,  products:[2,7,4]},
+  {region:'Oregon',       code:'OR', sales:31,  profit:9.6,  nm:31.0, cogs:41.5, bvar:-3.8,  products:[7,11,6]},
+  {region:'Massachusetts',code:'MA', sales:25,  profit:5.8,  nm:23.2, cogs:46.5, bvar:-28.3, products:[5,10,13]},
+];
+
+/* ═══════════════════════════════════════════════════════
+   HELPER FUNCTIONS
+   ═══════════════════════════════════════════════════════ */
+function pName(id) { return PRODUCT_NAMES[id] || `Product ${id}`; }
+function nmColor(nm) { return nm >= 20 ? 'var(--green)' : nm >= 10 ? 'var(--amber)' : 'var(--red)'; }
+function nmColorHex(nm) { return nm >= 20 ? '#2b8a5e' : nm >= 10 ? '#c07b1a' : '#c94444'; }
+function nmPill(nm) { return nm >= 30 ? 'Eccellente' : nm >= 20 ? 'Buono' : nm >= 10 ? 'Medio' : 'Critico'; }
+function nmClass(nm) { return nm >= 20 ? 'pill-green' : nm >= 10 ? 'pill-amber' : 'pill-red'; }
+function bvColor(v) { return v >= 0 ? 'var(--green-text)' : 'var(--red-text)'; }
+function bvBg(v) { return v >= 0 ? 'var(--green-bg)' : 'var(--red-bg)'; }
+
+function totalSales() { return products.reduce((s, p) => s + p.sales, 0); }
+function totalProfit() { return products.reduce((s, p) => s + p.profit, 0); }
+function avgNM() { return products.reduce((s, p) => s + p.nm, 0) / products.length; }
+function avgCOGS() { return products.reduce((s, p) => s + p.cogs_p, 0) / products.length; }
+function avgGM() { return products.reduce((s, p) => s + p.gm, 0) / products.length; }
+function avgBVar() { return products.reduce((s, p) => s + p.bvar, 0) / products.length; }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+/* Destroy all active Chart.js instances */
+let activeCharts = [];
+function destroyCharts() {
+  activeCharts.forEach(c => { try { c.destroy(); } catch(e) {} });
+  activeCharts = [];
+}
+
+/* ═══════════════════════════════════════════════════════
+   NAVIGATION / ROUTING
+   ═══════════════════════════════════════════════════════ */
+function navigateTo(page) {
+  window.location.hash = '#/' + page;
+}
+
+function handleRoute() {
+  destroyCharts();
+  const hash = window.location.hash || '#/prodotti';
+  const page = hash.replace('#/', '');
+
+  // Update active nav link
+  document.querySelectorAll('.nav-link').forEach(l => {
+    l.classList.toggle('active', l.dataset.page === page);
+  });
+
+  const view = document.getElementById('router-view');
+
+  if (page === 'geografia') {
+    renderGeoPage(view);
+  } else if (page === 'soluzioni') {
+    renderSolutionsPage(view);
+  } else {
+    renderProductPage(view);
+  }
+
+  // Close mobile sidebar
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+window.addEventListener('hashchange', handleRoute);
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+/* ═══════════════════════════════════════════════════════
+   EXCEL FILE UPLOAD HANDLER
+   ═══════════════════════════════════════════════════════ */
+function handleFileUpload(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const firstSheet = wb.SheetNames[0];
+      const data = XLSX.utils.sheet_to_json(wb.Sheets[firstSheet]);
+
+      if (data.length > 0) {
+        // Try to map Excel columns to our product data
+        data.forEach(row => {
+          const id = row['ID'] || row['Product ID'] || row['Prodotto'];
+          if (id) {
+            const num = parseInt(String(id).replace(/\D/g, ''));
+            if (num && row['Nome'] || row['Name'] || row['Product Name']) {
+              PRODUCT_NAMES[num] = row['Nome'] || row['Name'] || row['Product Name'];
+            }
+          }
+        });
+
+        document.getElementById('upload-status').classList.add('show');
+        document.getElementById('upload-status').textContent = `✓ ${file.name} — ${data.length} righe importate`;
+        showToast(`File "${file.name}" importato con successo!`);
+
+        // Re-render current page
+        handleRoute();
+      }
+    } catch (err) {
+      showToast('⚠ Errore nel parsing del file: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ═══════════════════════════════════════════════════════
+   PDF EXPORT
+   ═══════════════════════════════════════════════════════ */
+async function exportPDF(sectionId, title) {
+  showToast('Generazione PDF in corso…');
+  const el = document.getElementById(sectionId) || document.getElementById('router-view');
+  try {
+    const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#f5f0e8' });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('l', 'mm', 'a4');
+    const imgData = canvas.toDataURL('image/png');
+    const pdfW = pdf.internal.pageSize.getWidth();
+    const pdfH = (canvas.height * pdfW) / canvas.width;
+    pdf.setFontSize(16);
+    pdf.text(title || 'Vistabeans Report', 14, 14);
+    pdf.setFontSize(9);
+    pdf.text('Generato il ' + new Date().toLocaleDateString('it-IT'), 14, 20);
+    pdf.addImage(imgData, 'PNG', 0, 26, pdfW, Math.min(pdfH, pdf.internal.pageSize.getHeight() - 30));
+    pdf.save('Vistabeans_' + (title || 'Report').replace(/\s/g, '_') + '.pdf');
+    showToast('✓ PDF scaricato!');
+  } catch (err) {
+    showToast('⚠ Errore PDF: ' + err.message);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   PAGE 1 — PRODUCT ANALYSIS
+   ═══════════════════════════════════════════════════════ */
+function renderProductPage(container) {
+  const ts = totalSales().toFixed(0);
+  const tp = totalProfit().toFixed(0);
+  const anm = (totalProfit() / totalSales() * 100).toFixed(1);
+  const agm = avgGM().toFixed(1);
+  const abv = avgBVar().toFixed(1);
+
+  container.innerHTML = `
+  <div class="page-section" id="page-prodotti">
+    <div class="page-header">
+      <div>
+        <h1>📊 Analisi Prodotti</h1>
+        <p>Profittabilità 2020–2021 · 150 store · 13 prodotti</p>
+      </div>
+      <button class="btn btn-primary" onclick="exportPDF('page-prodotti','Analisi Prodotti')">📄 Esporta PDF</button>
+    </div>
+
+    <!-- KPI -->
+    <div class="section-label">KPI Aziendali</div>
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Sales Totali</div>
+        <div class="kpi-val">$${ts}K</div>
+        <div class="kpi-sub up">↑ +4.4% vs 2020</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:72%;background:var(--green)"></div></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Profit Netto</div>
+        <div class="kpi-val">$${tp}K</div>
+        <div class="kpi-sub up">↑ +18.7% vs 2020</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:54%;background:var(--green)"></div></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Gross Margin Medio</div>
+        <div class="kpi-val">${agm}%</div>
+        <div class="kpi-sub up">↑ COGS controllato</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${agm}%;background:var(--green)"></div></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Net Margin Medio</div>
+        <div class="kpi-val">${anm}%</div>
+        <div class="kpi-sub warn">⚠ Budget miss −13%</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${anm * 1.8}%;background:var(--amber)"></div></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Budget Variance</div>
+        <div class="kpi-val">${abv}%</div>
+        <div class="kpi-sub down">↓ Sforamento 2 anni</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:100%;background:var(--red)"></div></div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="section-label">Dettaglio Prodotti</div>
+    <div class="table-controls">
+      <input type="text" class="search-input" placeholder="🔍 Cerca prodotto…" oninput="filterTable(this.value)">
+    </div>
+    <div class="tbl-wrap">
+      <table id="product-table">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)">Prodotto <span class="sort-arrow">⇅</span></th>
+            <th onclick="sortTable(1)">Sales ($K) <span class="sort-arrow">⇅</span></th>
+            <th onclick="sortTable(2)">COGS % <span class="sort-arrow">⇅</span></th>
+            <th onclick="sortTable(3)">Gross M % <span class="sort-arrow">⇅</span></th>
+            <th onclick="sortTable(4)">Spese % <span class="sort-arrow">⇅</span></th>
+            <th onclick="sortTable(5)">Mkt % <span class="sort-arrow">⇅</span></th>
+            <th onclick="sortTable(6)">Profit ($K) <span class="sort-arrow">⇅</span></th>
+            <th onclick="sortTable(7)">Net M % <span class="sort-arrow">⇅</span></th>
+            <th onclick="sortTable(8)">Profit/Mkt <span class="sort-arrow">⇅</span></th>
+            <th onclick="sortTable(9)">Inventario <span class="sort-arrow">⇅</span></th>
+            <th onclick="sortTable(10)">Budget Var <span class="sort-arrow">⇅</span></th>
+            <th>Rating</th>
+          </tr>
+        </thead>
+        <tbody id="prod-tbody"></tbody>
+        <tfoot>
+          <tr>
+            <td>TOTALE</td><td>$${ts}K</td><td>${avgCOGS().toFixed(1)}%</td><td>${agm}%</td>
+            <td>27.1%</td><td>15.3%</td><td>$${tp}K</td><td>${anm}%</td>
+            <td>1.96x</td><td>857</td>
+            <td style="color:var(--red-text);background:var(--red-bg)">−13%</td><td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="section-label">Grafici Interattivi</div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Sales · COGS · Profit per Prodotto</div>
+        <div style="position:relative;height:320px">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Net Margin % — Ranking</div>
+        <div style="position:relative;height:320px">
+          <canvas id="nmChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:16px">
+      <div class="card">
+        <div class="card-title">Distribuzione Profit (Donut)</div>
+        <div style="position:relative;height:280px">
+          <canvas id="donutChart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Efficienza Marketing (Profit / $ Speso)</div>
+        <div class="legend">
+          <span><span class="ld" style="background:var(--green)"></span>≥2.0x ottimo</span>
+          <span><span class="ld" style="background:var(--amber)"></span>1–2x ok</span>
+          <span><span class="ld" style="background:var(--red)"></span>&lt;1x inefficiente</span>
+        </div>
+        <div id="mkt-bars"></div>
+      </div>
+    </div>
+
+    <div class="footer">Vistabeans CFO Office · Dati 2020–2021 · Riservato — uso interno</div>
+  </div>`;
+
+  renderProductTable();
+  renderProductCharts();
+  renderMktBars();
+}
+
+function renderProductTable() {
+  const tbody = document.getElementById('prod-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = products.map(p => {
+    const cogsBg = p.cogs_p > 55 ? 'var(--red-bg)' : p.cogs_p > 45 ? 'var(--amber-bg)' : 'transparent';
+    const cogsCol = p.cogs_p > 55 ? 'var(--red-text)' : p.cogs_p > 45 ? 'var(--amber-text)' : 'inherit';
+    const mktBg = p.mkt_p > 20 ? 'var(--red-bg)' : p.mkt_p > 16 ? 'var(--amber-bg)' : 'transparent';
+    const mktCol = p.mkt_p > 20 ? 'var(--red-text)' : p.mkt_p > 16 ? 'var(--amber-text)' : 'inherit';
+    const bvs = (p.bvar >= 0 ? '+' : '') + p.bvar.toFixed(0) + '%';
+    const nmBg = p.nm >= 20 ? 'var(--green-bg)' : p.nm >= 10 ? 'var(--amber-bg)' : 'var(--red-bg)';
+    const roiCol = p.roi >= 2 ? 'var(--green)' : p.roi >= 1 ? 'var(--amber)' : 'var(--red)';
+
+    return `<tr title="Profit/$Mkt: ${p.roi.toFixed(2)}x | Inventario: ${p.inv} | Budget: ${bvs}">
+      <td>${pName(p.id)}</td>
+      <td>$${p.sales.toFixed(0)}K</td>
+      <td style="background:${cogsBg};color:${cogsCol};font-weight:600">${p.cogs_p.toFixed(1)}%</td>
+      <td>${p.gm.toFixed(1)}%</td>
+      <td>${p.exp_p.toFixed(1)}%</td>
+      <td style="background:${mktBg};color:${mktCol};font-weight:600">${p.mkt_p.toFixed(1)}%</td>
+      <td style="font-weight:700">$${p.profit.toFixed(1)}K</td>
+      <td><span style="background:${nmBg};color:${nmColorHex(p.nm)};font-weight:700;padding:3px 10px;border-radius:20px">${p.nm.toFixed(1)}%</span></td>
+      <td style="color:${roiCol};font-weight:600">${p.roi.toFixed(2)}x</td>
+      <td>${p.inv}</td>
+      <td style="background:${bvBg(p.bvar)};color:${bvColor(p.bvar)};font-weight:700">${bvs}</td>
+      <td><span class="pill ${nmClass(p.nm)}">${nmPill(p.nm)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* TABLE SORT */
+let sortCol = -1, sortAsc = true;
+function sortTable(col) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = true; }
+
+  const keys = ['id','sales','cogs_p','gm','exp_p','mkt_p','profit','nm','roi','inv','bvar'];
+  const key = keys[col];
+  if (!key) return;
+
+  products.sort((a, b) => {
+    const va = col === 0 ? pName(a.id) : a[key];
+    const vb = col === 0 ? pName(b.id) : b[key];
+    if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortAsc ? va - vb : vb - va;
+  });
+  renderProductTable();
+}
+
+/* TABLE FILTER */
+function filterTable(query) {
+  const rows = document.querySelectorAll('#prod-tbody tr');
+  const q = query.toLowerCase();
+  rows.forEach(r => {
+    const name = r.cells[0].textContent.toLowerCase();
+    r.style.display = name.includes(q) ? '' : 'none';
+  });
+}
+
+/* PRODUCT CHARTS */
+function renderProductCharts() {
+  const sorted = [...products].sort((a, b) => b.profit - a.profit);
+  const labels = sorted.map(p => pName(p.id));
+  const shortLabels = sorted.map(p => pName(p.id).length > 14 ? pName(p.id).substring(0, 12) + '…' : pName(p.id));
+
+  // Grouped bar chart
+  const barCtx = document.getElementById('barChart');
+  if (barCtx) {
+    const c = new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels: shortLabels,
+        datasets: [
+          { label: 'Sales ($K)', data: sorted.map(p => p.sales), backgroundColor: '#5a3e2bcc', borderRadius: 4 },
+          { label: 'COGS ($K)', data: sorted.map(p => +(p.sales * p.cogs_p / 100).toFixed(1)), backgroundColor: '#c07b1acc', borderRadius: 4 },
+          { label: 'Profit ($K)', data: sorted.map(p => p.profit), backgroundColor: '#2b8a5ecc', borderRadius: 4 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 11, family: 'Inter' }, usePointStyle: true, pointStyle: 'rectRounded' } },
+          tooltip: {
+            callbacks: {
+              afterBody: (ctx) => {
+                const p = sorted[ctx[0].dataIndex];
+                return [`Net Margin: ${p.nm}%`, `Profit/Mkt: ${p.roi}x`, `Inventario: ${p.inv}`, `Budget Var: ${p.bvar >= 0 ? '+' : ''}${p.bvar}%`];
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 45 } },
+          y: { grid: { color: '#e8e0d4' }, ticks: { callback: v => '$' + v + 'K', font: { size: 10 } } }
+        }
+      }
+    });
+    activeCharts.push(c);
+  }
+
+  // Net margin horizontal bar
+  const nmCtx = document.getElementById('nmChart');
+  if (nmCtx) {
+    const nmSorted = [...products].sort((a, b) => b.nm - a.nm);
+    const c = new Chart(nmCtx, {
+      type: 'bar',
+      data: {
+        labels: nmSorted.map(p => pName(p.id).length > 16 ? pName(p.id).substring(0, 14) + '…' : pName(p.id)),
+        datasets: [{
+          data: nmSorted.map(p => p.nm),
+          backgroundColor: nmSorted.map(p => nmColorHex(p.nm) + 'cc'),
+          borderColor: nmSorted.map(p => nmColorHex(p.nm)),
+          borderWidth: 1, borderRadius: 4,
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `Net Margin: ${ctx.raw.toFixed(1)}%` } } },
+        scales: {
+          x: { grid: { color: '#e8e0d4' }, ticks: { callback: v => v + '%', font: { size: 10 } } },
+          y: { grid: { display: false }, ticks: { font: { size: 10, family: 'Inter' } } }
+        }
+      }
+    });
+    activeCharts.push(c);
+  }
+
+  // Donut
+  const donutCtx = document.getElementById('donutChart');
+  if (donutCtx) {
+    const top6 = [...products].sort((a, b) => b.profit - a.profit).slice(0, 6);
+    const othersProfit = products.reduce((s, p) => s + p.profit, 0) - top6.reduce((s, p) => s + p.profit, 0);
+    const dLabels = top6.map(p => pName(p.id)).concat(['Altri']);
+    const dData = top6.map(p => p.profit).concat([+othersProfit.toFixed(1)]);
+    const dColors = ['#5a3e2b', '#7a5c44', '#2b5a3e', '#3a7a54', '#c07b1a', '#2a6cb6', '#a89888'];
+
+    const c = new Chart(donutCtx, {
+      type: 'doughnut',
+      data: { labels: dLabels, datasets: [{ data: dData, backgroundColor: dColors, borderWidth: 2, borderColor: '#fff' }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '55%',
+        plugins: {
+          legend: { position: 'right', labels: { font: { size: 11, family: 'Inter' }, usePointStyle: true, pointStyle: 'circle', padding: 12 } },
+          tooltip: { callbacks: { label: ctx => `${ctx.label}: $${ctx.raw}K (${(ctx.raw / totalProfit() * 100).toFixed(1)}%)` } }
+        }
+      }
+    });
+    activeCharts.push(c);
+  }
+}
+
+function renderMktBars() {
+  const el = document.getElementById('mkt-bars');
+  if (!el) return;
+  el.innerHTML = products.map(p => {
+    const w = Math.max(3, Math.round(p.roi / 3 * 100));
+    const col = p.roi >= 2 ? 'var(--green)' : p.roi >= 1 ? 'var(--amber)' : 'var(--red)';
+    return `<div class="bar-row">
+      <span class="bar-label">${pName(p.id)}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${col}"></div></div>
+      <span class="bar-num" style="color:${col}">${p.roi.toFixed(2)}x</span>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════
+   PAGE 2 — GEOGRAPHIC ANALYSIS
+   ═══════════════════════════════════════════════════════ */
+function renderGeoPage(container) {
+  container.innerHTML = `
+  <div class="page-section" id="page-geo">
+    <div class="page-header">
+      <div>
+        <h1>🗺️ Analisi Geografica</h1>
+        <p>Performance per stato · Click su una regione per il drill-down</p>
+      </div>
+      <button class="btn btn-primary" onclick="exportPDF('page-geo','Analisi Geografica')">📄 Esporta PDF</button>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="filter-bar">
+      <select id="geo-product-filter" onchange="filterGeo()">
+        <option value="all">Tutti i prodotti</option>
+        ${Object.entries(PRODUCT_NAMES).map(([id, name]) => `<option value="${id}">${name}</option>`).join('')}
+      </select>
+      <select id="geo-region-filter" onchange="filterGeo()">
+        <option value="all">Tutti gli stati</option>
+        ${geoData.map(g => `<option value="${g.code}">${g.region}</option>`).join('')}
+      </select>
+    </div>
+
+    <!-- KPI -->
+    <div class="kpi-grid" id="geo-kpis"></div>
+
+    <!-- MAP -->
+    <div class="section-label" style="margin-top:20px">Mappa Interattiva</div>
+    <div class="map-container" id="map-area" style="position:relative">
+      <div class="map-svg-wrap" id="map-svg-container"></div>
+      <div class="map-popup" id="map-popup">
+        <button class="map-popup-close" onclick="closePopup()">✕</button>
+        <div id="popup-content"></div>
+      </div>
+    </div>
+
+    <!-- GEO TABLE -->
+    <div class="section-label">Dettaglio per Stato</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Stato</th><th>Sales ($K)</th><th>Profit ($K)</th><th>Net M %</th>
+            <th>COGS %</th><th>Budget Var</th><th>Prodotti</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="geo-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- CHART -->
+    <div class="section-label">Profit per Stato</div>
+    <div class="card">
+      <div style="position:relative;height:300px">
+        <canvas id="geoBarChart"></canvas>
+      </div>
+    </div>
+
+    <div class="footer">Vistabeans CFO Office · Dati 2020–2021 · Riservato — uso interno</div>
+  </div>`;
+
+  renderGeoKPIs(geoData);
+  renderUSMap();
+  renderGeoTable(geoData);
+  renderGeoChart(geoData);
+}
+
+function renderGeoKPIs(data) {
+  const ts = data.reduce((s, g) => s + g.sales, 0);
+  const tp = data.reduce((s, g) => s + g.profit, 0);
+  const anm = (tp / ts * 100).toFixed(1);
+  const bestState = data.reduce((a, b) => a.nm > b.nm ? a : b);
+  const worstState = data.reduce((a, b) => a.nm < b.nm ? a : b);
+
+  document.getElementById('geo-kpis').innerHTML = `
+    <div class="kpi">
+      <div class="kpi-label">Sales Totali (12 stati)</div>
+      <div class="kpi-val">$${ts}K</div>
+      <div class="kpi-sub up">↑ 12 stati monitorati</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Profit Totale</div>
+      <div class="kpi-val">$${tp.toFixed(0)}K</div>
+      <div class="kpi-sub up">NM medio: ${anm}%</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Stato Migliore</div>
+      <div class="kpi-val" style="font-size:20px">${bestState.region}</div>
+      <div class="kpi-sub up">NM: ${bestState.nm}%</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Stato Critico</div>
+      <div class="kpi-val" style="font-size:20px">${worstState.region}</div>
+      <div class="kpi-sub down">NM: ${worstState.nm}% · COGS ${worstState.cogs}%</div>
+    </div>`;
+}
+
+function renderUSMap() {
+  const mapC = document.getElementById('map-svg-container');
+  if (!mapC) return;
+
+  // Simplified US state grid-map (cartogram style)
+  const stateGrid = [
+    {code:'WA',x:1,y:0},{code:'OR',x:1,y:1},{code:'CA',x:0,y:2},
+    {code:'CO',x:3,y:2},{code:'TX',x:3,y:4},{code:'IL',x:5,y:2},
+    {code:'OH',x:6,y:2},{code:'PA',x:7,y:1},{code:'NY',x:7,y:0},
+    {code:'MA',x:8,y:0},{code:'GA',x:6,y:4},{code:'FL',x:7,y:5},
+  ];
+
+  const cellW = 90, cellH = 70, pad = 6;
+  const svgW = 10 * (cellW + pad), svgH = 7 * (cellH + pad);
+
+  let svg = `<svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg" style="max-height:420px;">`;
+
+  stateGrid.forEach(s => {
+    const geo = geoData.find(g => g.code === s.code);
+    if (!geo) return;
+    const x = s.x * (cellW + pad) + pad;
+    const y = s.y * (cellH + pad) + pad;
+
+    // Color based on net margin
+    const fill = geo.nm >= 30 ? '#2b8a5e' : geo.nm >= 26 ? '#3a7a54' : geo.nm >= 24 ? '#c07b1a' : '#c94444';
+    const opacity = 0.2 + (geo.sales / 150) * 0.7;
+
+    svg += `<g class="map-state" onclick="showGeoPopup('${s.code}', ${x + cellW/2}, ${y})" style="cursor:pointer">
+      <rect x="${x}" y="${y}" width="${cellW}" height="${cellH}" rx="10" ry="10"
+            fill="${fill}" fill-opacity="${opacity}" stroke="#fff" stroke-width="2"/>
+      <text x="${x + cellW/2}" y="${y + 24}" text-anchor="middle" fill="#fff" font-size="16" font-weight="700" font-family="Inter">${s.code}</text>
+      <text x="${x + cellW/2}" y="${y + 42}" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-size="10" font-family="Inter">$${geo.sales}K</text>
+      <text x="${x + cellW/2}" y="${y + 56}" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="9" font-family="Inter">NM ${geo.nm}%</text>
+    </g>`;
+  });
+
+  svg += '</svg>';
+  mapC.innerHTML = svg;
+}
+
+function showGeoPopup(code, px, py) {
+  const geo = geoData.find(g => g.code === code);
+  if (!geo) return;
+
+  const popup = document.getElementById('map-popup');
+  const content = document.getElementById('popup-content');
+
+  let alerts = '';
+  if (geo.cogs > 44) alerts += `<div class="alert-item" style="background:var(--red-bg);color:var(--red-text)">⚠ COGS alto: ${geo.cogs}%</div>`;
+  if (geo.nm < 26) alerts += `<div class="alert-item" style="background:var(--amber-bg);color:var(--amber-text)">⚠ Margine basso: ${geo.nm}%</div>`;
+  if (geo.bvar < -15) alerts += `<div class="alert-item" style="background:var(--red-bg);color:var(--red-text)">⚠ Fuori budget: ${geo.bvar}%</div>`;
+
+  content.innerHTML = `
+    <h3>${geo.region} (${geo.code})</h3>
+    <div class="map-mini-kpi">
+      <div class="mk"><div class="mk-label">Sales</div><div class="mk-val">$${geo.sales}K</div></div>
+      <div class="mk"><div class="mk-label">Profit</div><div class="mk-val">$${geo.profit}K</div></div>
+      <div class="mk"><div class="mk-label">Net Margin</div><div class="mk-val" style="color:${nmColorHex(geo.nm)}">${geo.nm}%</div></div>
+      <div class="mk"><div class="mk-label">Budget Var</div><div class="mk-val" style="color:${geo.bvar >= 0 ? '#2b8a5e' : '#c94444'}">${geo.bvar >= 0 ? '+' : ''}${geo.bvar}%</div></div>
+    </div>
+    <div class="sparkline-wrap"><canvas id="sparkline-${code}"></canvas></div>
+    <div style="margin-bottom:8px">
+      <strong style="font-size:11px;color:var(--text-secondary)">Prodotti:</strong><br>
+      ${geo.products.map(id => `<span class="pill ${nmClass(products.find(p=>p.id===id)?.nm||0)}" style="margin:2px">${pName(id)}</span>`).join(' ')}
+    </div>
+    ${alerts ? '<div class="map-alerts" style="margin-top:8px">' + alerts + '</div>' : ''}
+  `;
+
+  popup.style.left = Math.min(px, window.innerWidth - 380) + 'px';
+  popup.style.top = Math.max(10, py - 20) + 'px';
+  popup.classList.add('show');
+
+  // Mini sparkline
+  setTimeout(() => {
+    const sc = document.getElementById('sparkline-' + code);
+    if (sc) {
+      const sparkData = geo.products.map(id => {
+        const p = products.find(pp => pp.id === id);
+        return p ? p.profit : 0;
+      });
+      const c = new Chart(sc, {
+        type: 'line',
+        data: {
+          labels: geo.products.map(id => pName(id).substring(0, 8)),
+          datasets: [{ data: sparkData, borderColor: '#5a3e2b', backgroundColor: 'rgba(90,62,43,0.1)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { display: false }, y: { display: false } }
+        }
+      });
+      activeCharts.push(c);
+    }
+  }, 50);
+}
+
+function closePopup() {
+  document.getElementById('map-popup').classList.remove('show');
+}
+
+function filterGeo() {
+  const prodFilter = document.getElementById('geo-product-filter').value;
+  const regionFilter = document.getElementById('geo-region-filter').value;
+
+  let filtered = [...geoData];
+  if (prodFilter !== 'all') {
+    filtered = filtered.filter(g => g.products.includes(parseInt(prodFilter)));
+  }
+  if (regionFilter !== 'all') {
+    filtered = filtered.filter(g => g.code === regionFilter);
+  }
+
+  renderGeoKPIs(filtered);
+  renderGeoTable(filtered);
+  renderGeoChart(filtered);
+}
+
+function renderGeoTable(data) {
+  const tbody = document.getElementById('geo-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = data.map(g => {
+    const status = g.nm >= 30 ? 'pill-green' : g.nm >= 26 ? 'pill-amber' : 'pill-red';
+    const statusText = g.nm >= 30 ? 'Ottimo' : g.nm >= 26 ? 'OK' : 'Attenzione';
+    return `<tr>
+      <td>${g.region}</td>
+      <td>$${g.sales}K</td>
+      <td style="font-weight:700">$${g.profit}K</td>
+      <td><span style="color:${nmColorHex(g.nm)};font-weight:700">${g.nm}%</span></td>
+      <td>${g.cogs}%</td>
+      <td style="color:${g.bvar >= 0 ? 'var(--green-text)' : 'var(--red-text)'};font-weight:600">${g.bvar >= 0 ? '+' : ''}${g.bvar}%</td>
+      <td style="font-size:11px">${g.products.map(id => pName(id)).join(', ')}</td>
+      <td><span class="pill ${status}">${statusText}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderGeoChart(data) {
+  destroyCharts();
+  const ctx = document.getElementById('geoBarChart');
+  if (!ctx) return;
+  const sorted = [...data].sort((a, b) => b.profit - a.profit);
+  const c = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(g => g.region),
+      datasets: [
+        { label: 'Sales ($K)', data: sorted.map(g => g.sales), backgroundColor: '#5a3e2bcc', borderRadius: 4 },
+        { label: 'Profit ($K)', data: sorted.map(g => g.profit), backgroundColor: '#2b8a5ecc', borderRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { font: { size: 11, family: 'Inter' }, usePointStyle: true } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { grid: { color: '#e8e0d4' }, ticks: { callback: v => '$' + v + 'K', font: { size: 10 } } }
+      }
+    }
+  });
+  activeCharts.push(c);
+}
+
+/* ═══════════════════════════════════════════════════════
+   PAGE 3 — SOLUTIONS & RECOMMENDATIONS
+   ═══════════════════════════════════════════════════════ */
+function renderSolutionsPage(container) {
+  const criticalProducts = products.filter(p => p.nm < 20).sort((a, b) => a.nm - b.nm);
+  const weakRegions = geoData.filter(g => g.nm < 27).sort((a, b) => a.nm - b.nm);
+  const inefficientMkt = products.filter(p => p.roi < 1).sort((a, b) => a.roi - b.roi);
+  const highCOGS = products.filter(p => p.cogs_p > 48).sort((a, b) => b.cogs_p - a.cogs_p);
+
+  container.innerHTML = `
+  <div class="page-section" id="page-soluzioni">
+    <div class="page-header">
+      <div>
+        <h1>💡 Soluzioni & Raccomandazioni</h1>
+        <p>Analisi automatica dei dati · Simulazioni interattive · Forecast dinamico</p>
+      </div>
+      <button class="btn btn-primary" onclick="exportPDF('page-soluzioni','Soluzioni e Raccomandazioni')">📄 Esporta PDF</button>
+    </div>
+
+    <!-- DIAGNOSTICA AUTO -->
+    <div class="section-label">🔍 Diagnostica Automatica</div>
+    <div class="grid-3">
+      <div class="kpi" style="border-left:4px solid var(--red)">
+        <div class="kpi-label">Prodotti Critici</div>
+        <div class="kpi-val" style="color:var(--red)">${criticalProducts.length}</div>
+        <div class="kpi-sub down">${criticalProducts.map(p => pName(p.id)).join(', ')}</div>
+      </div>
+      <div class="kpi" style="border-left:4px solid var(--amber)">
+        <div class="kpi-label">Regioni Sotto-performanti</div>
+        <div class="kpi-val" style="color:var(--amber)">${weakRegions.length}</div>
+        <div class="kpi-sub warn">${weakRegions.map(r => r.region).join(', ')}</div>
+      </div>
+      <div class="kpi" style="border-left:4px solid var(--red)">
+        <div class="kpi-label">Marketing Inefficiente</div>
+        <div class="kpi-val" style="color:var(--red)">${inefficientMkt.length}</div>
+        <div class="kpi-sub down">${inefficientMkt.map(p => pName(p.id) + ' (' + p.roi + 'x)').join(', ')}</div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="section-label">📋 Azioni Prioritarie</div>
+
+    ${criticalProducts.length > 0 ? `
+    <div class="action-card" style="background:var(--red-bg)">
+      <div class="action-icon" style="background:#fdd;color:var(--red-text)">⚠</div>
+      <div class="action-body">
+        <div class="action-tag" style="background:var(--red);color:#fff">URGENTE</div>
+        <div class="action-title" style="color:var(--red-text)">Discontinuare o rinegoziare ${pName(criticalProducts[0].id)}</div>
+        <div class="action-desc">Net margin ${criticalProducts[0].nm}%, COGS ${criticalProducts[0].cogs_p}%. Rinegoziare contratto fornitore entro Q1 o eliminare dal portfolio.</div>
+        <div class="action-meta">→ Potenziale recupero stimato nel simulatore sottostante</div>
+      </div>
+    </div>` : ''}
+
+    ${inefficientMkt.length > 0 ? `
+    <div class="action-card" style="background:var(--amber-bg)">
+      <div class="action-icon" style="background:#fde8b0;color:var(--amber-text)">↗</div>
+      <div class="action-body">
+        <div class="action-tag" style="background:var(--amber);color:#fff">MEDIO TERMINE</div>
+        <div class="action-title" style="color:var(--amber-text)">Riallocare budget marketing</div>
+        <div class="action-desc">${inefficientMkt.map(p => pName(p.id)).join(', ')} hanno ROI marketing &lt; 1x. Riallocare verso i top performer.</div>
+      </div>
+    </div>` : ''}
+
+    <div class="action-card" style="background:var(--green-bg)">
+      <div class="action-icon" style="background:#c6eedd;color:var(--green-text)">★</div>
+      <div class="action-body">
+        <div class="action-tag" style="background:var(--green);color:#fff">STRATEGICO</div>
+        <div class="action-title" style="color:var(--green-text)">Espandere ${pName(2)} nell'assortimento</div>
+        <div class="action-desc">Net margin 37.8%, COGS 37.7% — il migliore dell'intero portfolio. Valutare scalabilità per volume o per store.</div>
+      </div>
+    </div>
+
+    <!-- SIMULATORE -->
+    <div class="section-label">🎛️ Simulatore Interattivo</div>
+
+    <div class="sim-card">
+      <h3>Simulazione Riduzione COGS</h3>
+      <div class="sim-row">
+        <label>Riduzione COGS (%)</label>
+        <input type="range" id="sim-cogs" min="0" max="20" value="0" step="0.5" oninput="runSimulation()">
+        <span class="sim-val" id="sim-cogs-val">0%</span>
+      </div>
+      <div class="sim-row">
+        <label>Aumento Prezzo (%)</label>
+        <input type="range" id="sim-price" min="0" max="15" value="0" step="0.5" oninput="runSimulation()">
+        <span class="sim-val" id="sim-price-val">0%</span>
+      </div>
+      <div class="sim-row">
+        <label>Riallocazione Mkt (%)</label>
+        <input type="range" id="sim-mkt" min="0" max="50" value="0" step="1" oninput="runSimulation()">
+        <span class="sim-val" id="sim-mkt-val">0%</span>
+      </div>
+      <div class="sim-result" id="sim-results">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+
+    <!-- FORECAST CHART -->
+    <div class="section-label">📈 Forecast Dinamico del Profitto</div>
+    <div class="card">
+      <div style="position:relative;height:300px">
+        <canvas id="forecastChart"></canvas>
+      </div>
+    </div>
+
+    <!-- BUDGET REALLOCATION -->
+    <div class="section-label">💰 Suggerimento Riallocazione Budget Marketing</div>
+    <div class="card">
+      <div class="card-title">Spostamento budget da prodotti inefficienti a top performer</div>
+      <div id="realloc-bars"></div>
+    </div>
+
+    <div class="footer">Vistabeans CFO Office · Dati 2020–2021 · Riservato — uso interno</div>
+  </div>`;
+
+  runSimulation();
+  renderForecastChart();
+  renderReallocBars();
+}
+
+function runSimulation() {
+  const cogsReduction = parseFloat(document.getElementById('sim-cogs')?.value || 0);
+  const priceIncrease = parseFloat(document.getElementById('sim-price')?.value || 0);
+  const mktRealloc = parseFloat(document.getElementById('sim-mkt')?.value || 0);
+
+  if (document.getElementById('sim-cogs-val')) document.getElementById('sim-cogs-val').textContent = cogsReduction + '%';
+  if (document.getElementById('sim-price-val')) document.getElementById('sim-price-val').textContent = priceIncrease + '%';
+  if (document.getElementById('sim-mkt-val')) document.getElementById('sim-mkt-val').textContent = mktRealloc + '%';
+
+  const origProfit = totalProfit();
+  const origSales = totalSales();
+
+  // Simulate
+  let newProfit = 0;
+  let newSales = 0;
+  products.forEach(p => {
+    const newSale = p.sales * (1 + priceIncrease / 100);
+    const newCogs = (p.cogs_p - cogsReduction) / 100 * newSale;
+    const expenses = p.exp_p / 100 * newSale;
+    const pr = newSale - newCogs - expenses;
+    newProfit += pr;
+    newSales += newSale;
+  });
+
+  // Marketing reallocation effect (estimated)
+  const mktBoost = mktRealloc / 100 * origProfit * 0.05; // conservative 5% efficiency gain
+  newProfit += mktBoost;
+
+  const newNM = (newProfit / newSales * 100).toFixed(1);
+  const profitDelta = newProfit - origProfit;
+  const profitDeltaPct = ((profitDelta / origProfit) * 100).toFixed(1);
+
+  const results = document.getElementById('sim-results');
+  if (!results) return;
+
+  results.innerHTML = `
+    <div class="sr">
+      <div class="sr-label">Profit Attuale</div>
+      <div class="sr-val" style="color:var(--text-secondary)">$${origProfit.toFixed(0)}K</div>
+    </div>
+    <div class="sr">
+      <div class="sr-label">Profit Simulato</div>
+      <div class="sr-val" style="color:${profitDelta >= 0 ? 'var(--green)' : 'var(--red)'}">$${newProfit.toFixed(0)}K</div>
+      <div class="sr-delta" style="color:${profitDelta >= 0 ? 'var(--green)' : 'var(--red)'}">
+        ${profitDelta >= 0 ? '↑' : '↓'} ${profitDelta >= 0 ? '+' : ''}$${profitDelta.toFixed(1)}K (${profitDeltaPct}%)
+      </div>
+    </div>
+    <div class="sr">
+      <div class="sr-label">Net Margin Simulato</div>
+      <div class="sr-val" style="color:${nmColorHex(parseFloat(newNM))}">${newNM}%</div>
+    </div>
+    <div class="sr">
+      <div class="sr-label">Sales Simulato</div>
+      <div class="sr-val" style="color:var(--primary)">$${newSales.toFixed(0)}K</div>
+    </div>
+  `;
+}
+
+function renderForecastChart() {
+  const ctx = document.getElementById('forecastChart');
+  if (!ctx) return;
+
+  const cogsR = parseFloat(document.getElementById('sim-cogs')?.value || 0);
+  const priceI = parseFloat(document.getElementById('sim-price')?.value || 0);
+
+  // Historical + forecast
+  const years = ['2019', '2020', '2021', '2022 (F)', '2023 (F)', '2024 (F)'];
+  const historical = [180, 195, 231];
+
+  // Project forward with simulation factors
+  const growth = 1 + (priceI / 100) * 0.3 + (cogsR / 100) * 0.4;
+  const forecast = [
+    +(231 * growth * 1.05).toFixed(0),
+    +(231 * growth * 1.10).toFixed(0),
+    +(231 * growth * 1.16).toFixed(0),
+  ];
+
+  const c = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: years,
+      datasets: [
+        {
+          label: 'Profit Storico ($K)',
+          data: [...historical, null, null, null],
+          borderColor: '#5a3e2b',
+          backgroundColor: 'rgba(90,62,43,0.1)',
+          borderWidth: 3,
+          pointRadius: 5,
+          pointBackgroundColor: '#5a3e2b',
+          fill: true,
+          tension: 0.3,
+        },
+        {
+          label: 'Profit Forecast ($K)',
+          data: [null, null, 231, ...forecast],
+          borderColor: '#2b8a5e',
+          backgroundColor: 'rgba(43,138,94,0.08)',
+          borderWidth: 3,
+          borderDash: [8, 4],
+          pointRadius: 5,
+          pointBackgroundColor: '#2b8a5e',
+          fill: true,
+          tension: 0.3,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { font: { size: 11, family: 'Inter' }, usePointStyle: true } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { grid: { color: '#e8e0d4' }, ticks: { callback: v => '$' + v + 'K', font: { size: 10 } } }
+      }
+    }
+  });
+  activeCharts.push(c);
+}
+
+function renderReallocBars() {
+  const el = document.getElementById('realloc-bars');
+  if (!el) return;
+
+  // Sort by ROI — show where to take from and where to send
+  const sorted = [...products].sort((a, b) => b.roi - a.roi);
+  const topPerformers = sorted.filter(p => p.roi >= 2);
+  const lowPerformers = sorted.filter(p => p.roi < 1.2);
+
+  let html = '<div style="margin-bottom:16px"><strong style="font-size:12px;color:var(--green-text)">✓ Top performer — Aumentare budget:</strong></div>';
+  topPerformers.forEach(p => {
+    const w = Math.round(p.roi / 3 * 100);
+    html += `<div class="bar-row">
+      <span class="bar-label">${pName(p.id)}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:var(--green)"></div></div>
+      <span class="bar-num" style="color:var(--green)">${p.roi.toFixed(2)}x</span>
+    </div>`;
+  });
+
+  html += '<div style="margin:16px 0 12px"><strong style="font-size:12px;color:var(--red-text)">✕ Low performer — Ridurre budget:</strong></div>';
+  lowPerformers.forEach(p => {
+    const w = Math.round(p.roi / 3 * 100);
+    html += `<div class="bar-row">
+      <span class="bar-label">${pName(p.id)}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:var(--red)"></div></div>
+      <span class="bar-num" style="color:var(--red)">${p.roi.toFixed(2)}x</span>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════
+   BOOT
+   ═══════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  if (!window.location.hash) window.location.hash = '#/prodotti';
+  handleRoute();
+});
+</script>
+</body>
+</html>
